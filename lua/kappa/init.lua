@@ -4,6 +4,7 @@ M.config = {
 	channel = nil, -- default channel for :Kappa with no argument
 	width = 40,
 	timestamps = true,
+	max_lines = 10000, -- oldest lines are dropped past this
 	-- ponytail: anonymous read-only login; sending needs an oauth token, add when wanted
 	nick = "justinfan" .. math.random(10000, 99999),
 }
@@ -124,6 +125,11 @@ local function append(line, nick_start, nick_end, color)
 		end
 		vim.bo[state.buf].modifiable = true
 		vim.api.nvim_buf_set_lines(state.buf, -1, -1, false, { line })
+		-- ponytail: trim in batches (10% over), not on every message
+		local n = vim.api.nvim_buf_line_count(state.buf)
+		if n > M.config.max_lines * 1.1 then
+			vim.api.nvim_buf_set_lines(state.buf, 0, n - M.config.max_lines, false, {})
+		end
 		vim.bo[state.buf].modifiable = false
 
 		local row = vim.api.nvim_buf_line_count(state.buf)
