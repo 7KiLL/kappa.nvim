@@ -26,18 +26,26 @@ Rough order. Each item is small and independent.
 - [ ] **README screenshot**
   Needed for awesome-neovim. `assets/demo.png` like copybara.
 
-- [ ] **Twitch emote highlighting** (~15 lines)
-  The `emotes` tag gives `id:start-end,start-end/id:...` with offsets into the
-  message. Paint those ranges with a `KappaEmote` group.
-  Gotcha: offsets are in Unicode codepoints, extmarks want bytes. `vim.str_byteindex` converts.
+- [ ] **Emotes: Twitch + 7TV** (~150 lines, new `lua/kappa/emotes.lua`)
+  Images by default, text fallback when the terminal can't. Never "unsupported".
 
-- [ ] **7TV emote highlighting** (~40 lines, needs `curl`)
-  `room-id` tag = Twitch channel id. Once per channel:
-  `GET https://7tv.io/v3/users/twitch/<room-id>` → `emote_set.emotes[].name`
-  (public, no auth, ~1000 names for big channels).
-  Fetch with `vim.system({ "curl", "-s", url })`, parse with `vim.json.decode`,
-  keep a `set[name] = true`. Per message: split on spaces, highlight words in the set.
-  Where: new `lua/kappa/seventv.lua`, hook in `handle()` after parse.
+  Finding them:
+  - Twitch: the `emotes` tag gives `id:start-end,...` in codepoint offsets
+    (`vim.str_byteindex` to bytes). Image: `https://static-cdn.jtvnw.net/emoticons/v2/<id>/default/dark/2.0`
+  - 7TV: `room-id` tag → `GET https://7tv.io/v3/users/twitch/<room-id>` once per channel,
+    public, no auth. `emote_set.emotes[].name` + id. Match words per message.
+    Image: `https://cdn.7tv.app/emote/<id>/2x.webp`
+
+  Rendering, picked once at open:
+  1. `Snacks.image.supports_terminal()` true (kitty, ghostty; tmux ok, zellij no)
+     → download once to `stdpath("cache")/kappa/`, then
+       `Snacks.image.placement.new(buf, file, { pos = {row, col}, inline = true, width = 2, height = 1 })`
+       over the emote text. First frame only, no animation.
+  2. otherwise → highlight the range with a `KappaEmote` group and wrap it, e.g. `⟨KEKW⟩`,
+     so emotes read differently from words.
+
+  Keep it cheap: cap buffer at ~300 lines, drop placements on lines that scroll out,
+  one download per emote id.
 
 - [ ] **Sending messages** (~30 lines + config)
   Needs an OAuth token with `chat:edit` scope and `PASS oauth:<token>` before `NICK`.
@@ -46,10 +54,5 @@ Rough order. Each item is small and independent.
 
 ## Maybe
 
-- **Emote images** (Twitch + 7TV). Terminals can't show images in a buffer
-  without the kitty graphics protocol and a plugin like `image.nvim`. Would be an
-  optional integration: if `image.nvim` is installed and the terminal supports it,
-  swap highlighted names for the CDN webp (`https://cdn.7tv.app/emote/<id>/1x.webp`).
-  Big, keep last.
 - Badges: mod / sub / broadcaster prefix from the `badges` tag
 - Multiple channels, one buffer each
