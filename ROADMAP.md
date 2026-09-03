@@ -19,6 +19,20 @@ Rough order. Each item is small and independent.
   Link a `KappaTime` group to `Comment`, extmark on columns `0..#ts`.
   Same trick as nick colors.
 
+- [ ] **Badges** (~20 lines)
+  The `badges` tag: `broadcaster/1,moderator/1,vip/1,subscriber/12`.
+  Prefix the nick with a glyph per role, each with its own highlight group:
+  ```lua
+  badges = {           -- opts, override with nerd-font glyphs if you like
+    broadcaster = { "●", "#E91916" },
+    moderator   = { "⚔", "#00AD03" },
+    vip         = { "◆", "#E005B9" },
+    subscriber  = { "★", "#9146FF" },
+  }
+  ```
+  Only the first matching role shows. Nick offsets shift by the prefix length.
+  Badge images need an authed Helix call for the URL map, not worth it.
+
 - [ ] **Reconnect** (~15 lines)
   On `! disconnected`, `vim.defer_fn` a retry with backoff, give up after N tries.
   Where: `read_start` error branch in `connect()`.
@@ -54,5 +68,4 @@ Rough order. Each item is small and independent.
 
 ## Maybe
 
-- Badges: mod / sub / broadcaster prefix from the `badges` tag
 - Multiple channels, one buffer each
