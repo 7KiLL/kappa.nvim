@@ -19,6 +19,11 @@ Rough order. Each item is small and independent.
   Link a `KappaTime` group to `Comment`, extmark on columns `0..#ts`.
   Same trick as nick colors.
 
+- [ ] **Mentions / keywords** (~15 lines)
+  `highlights = { "yourname", "kappa.nvim" }` in opts. Case-insensitive match on the
+  message text. Hit → tint the whole line (`KappaMention` group, `line_hl_group` on the
+  extmark) and `vim.notify` if `notify = true`. Works anonymously, it's just text.
+
 - [ ] **Badges** (~20 lines)
   The `badges` tag: `broadcaster/1,moderator/1,vip/1,subscriber/12`.
   Prefix the nick with a glyph per role, each with its own highlight group:
@@ -65,6 +70,11 @@ Rough order. Each item is small and independent.
   Needs an OAuth token with `chat:edit` scope and `PASS oauth:<token>` before `NICK`.
   UI: `:KappaSend <text>` or `vim.ui.input` from a keymap.
   Update README and lazy spec.
+
+- [ ] **Whispers** (after Sending messages, needs auth)
+  Add `twitch.tv/commands` to the CAP REQ, parse `:from!from@x WHISPER you :text`,
+  show in the chat buffer with a distinct color or in a second buffer.
+  Receiving only. Twitch dropped sending whispers over IRC, that needs a Helix call.
 
 ## Maybe
 
