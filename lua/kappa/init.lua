@@ -182,6 +182,20 @@ end
 
 vim.api.nvim_set_hl(0, "KappaEmote", { link = "Special", default = true })
 vim.api.nvim_set_hl(0, "KappaTime", { link = "Comment", default = true })
+vim.api.nvim_set_hl(0, "KappaMention", { link = "Identifier", default = true })
+
+--- Byte ranges of every @name in msg, 0-based, end exclusive. Twitch names are [%w_].
+---@param msg string
+---@return { [1]: integer, [2]: integer }[]
+local function mentions(msg)
+	local out = {}
+
+	for s, e in msg:gmatch("()@[%w_]+()") do
+		out[#out + 1] = { s - 1, e - 1 }
+	end
+
+	return out
+end
 
 --- Should the window keep following new lines? Called before the new line is
 --- added, so `n` is the line count as the user currently sees it.
@@ -275,6 +289,9 @@ local function handle(line)
 		local off = #ts + #m.nick + 2 -- ": "
 		for _, e in ipairs(emotes.find(m.msg, m.tags, emotes.sets[m.tags["room-id"]])) do
 			marks[#marks + 1] = { off + e.s, off + e.e, "KappaEmote", url = e.url }
+		end
+		for _, r in ipairs(mentions(m.msg)) do
+			marks[#marks + 1] = { off + r[1], off + r[2], "KappaMention" }
 		end
 		append(("%s%s: %s"):format(ts, m.nick, m.msg), marks)
 	end
