@@ -108,7 +108,9 @@ local sources = {
 ---@param url string
 ---@param cb fun(emotes: { name: string, id: string }[])
 local function get(url, cb)
-	vim.system({ "curl", "-sf", url }, { text = true }, function(res)
+	-- ponytail: 7tv.io is flaky, let curl retry; no in-session refresh, :Kappa again reuses the set
+	local cmd = { "curl", "-sf", "--retry", "3", "--retry-all-errors", "--retry-delay", "1", "--max-time", "30", url }
+	vim.system(cmd, { text = true }, function(res)
 		if res.code ~= 0 then
 			return
 		end
