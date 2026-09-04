@@ -181,6 +181,17 @@ end
 
 vim.api.nvim_set_hl(0, "KappaEmote", { link = "Special", default = true })
 
+--- Should the window keep following new lines? Called before the new line is
+--- added, so `n` is the line count as the user currently sees it.
+---@param n integer  current line count
+---@return boolean
+local function following(n)
+	if not (state.win and vim.api.nvim_win_is_valid(state.win)) then
+		return false
+	end
+	return vim.api.nvim_win_get_cursor(state.win)[1] == n
+end
+
 --- Append one line to the chat buffer and paint marks on it. Safe from any thread.
 ---@param line string
 ---@param marks kappa.Mark[]|nil  0-based bytes into `line`, end exclusive
@@ -189,6 +200,7 @@ local function append(line, marks)
 		if not (state.buf and vim.api.nvim_buf_is_valid(state.buf)) then
 			return
 		end
+		local follow = following(vim.api.nvim_buf_line_count(state.buf))
 		vim.bo[state.buf].modifiable = true
 		vim.api.nvim_buf_set_lines(state.buf, -1, -1, false, { line })
 		-- ponytail: trim in batches (10% over), not on every message
@@ -227,8 +239,7 @@ local function append(line, marks)
 				table.insert(state.placements, { p = p, row = row + 1 })
 			end
 		end
-		-- ponytail: always tail; stop following when user scrolls up if it annoys
-		if state.win and vim.api.nvim_win_is_valid(state.win) then
+		if follow and state.win and vim.api.nvim_win_is_valid(state.win) then
 			vim.api.nvim_win_set_cursor(state.win, { vim.api.nvim_buf_line_count(state.buf), 0 })
 		end
 	end)

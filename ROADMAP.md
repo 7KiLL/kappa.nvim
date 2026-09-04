@@ -7,14 +7,10 @@ Rough order. Each item is small and independent.
 - [x] Read-only anonymous chat in a right sidebar (`:Kappa <channel>`, `:Kappa` to toggle)
 - [x] Colored nicknames via IRCv3 tags (`display-name`, `color`)
 - [x] Unicode emoji: free, the buffer is UTF-8 and nick offsets are byte-based already
+- [x] Scroll lock: tail only while the cursor is on the last line, `G` resumes
 - [x] Emotes: Twitch (`emotes` tag) + 7TV (per room-id set), images via snacks.nvim, text highlight fallback
 
 ## Next
-
-- [ ] **Scroll lock** (~5 lines)
-  Only follow the tail when the cursor is already on the last line.
-  Otherwise scrolling up to read gets yanked back on every message.
-  Where: `append()`, check cursor row before `nvim_buf_set_lines`.
 
 - [ ] **Dimmed timestamps** (~5 lines)
   Link a `KappaTime` group to `Comment`, extmark on columns `0..#ts`.
