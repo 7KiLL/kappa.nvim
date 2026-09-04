@@ -38,6 +38,13 @@ Rough order. Each item is small and independent.
   show in the chat buffer with a distinct color or in a second buffer.
   Receiving only. Twitch dropped sending whispers over IRC, that needs a Helix call.
 
+## Known ceilings
+
+- Zebra rows are opaque on transparent terminals. Cells have no alpha. Override `KappaAlt`
+  with a bg near your wallpaper, or use an fg-only stripe.
+- Wrapped lines that end in an emote get a blank virtual row under them. Snacks skips its
+  overlay path when the text is wider than the window. Wider sidebar helps, real fix is upstream.
+
 ## Maybe
 
 - Multiple channels, one buffer each
