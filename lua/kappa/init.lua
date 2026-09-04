@@ -193,20 +193,24 @@ vim.api.nvim_set_hl(0, "KappaEmote", { link = "Special", default = true })
 vim.api.nvim_set_hl(0, "KappaTime", { link = "Comment", default = true })
 vim.api.nvim_set_hl(0, "KappaMention", { link = "Identifier", default = true })
 
--- Roles in display priority. A moderator who also subscribes shows the mod glyph.
--- (A Lua table with string keys has no order, so the order lives here, not in config.badges.)
+-- first match wins, so a mod who also subs shows the mod glyph
 local badge_order = { "broadcaster", "moderator", "vip", "subscriber" }
 
---- Pick the badge glyph for a message.
---- Twitch sends roles in the `badges` tag as "role/version,role/version", e.g.
----   badges=moderator/1,subscriber/12     or     badges=      (none)
---- Walk badge_order, return the first role that appears in the tag and is configured.
---- Returns glyph and color, or nil when the user has no badge we care about.
+--- tags.badges looks like "moderator/1,subscriber/12". Returns glyph, color or nil.
 ---@param tags kappa.Tags
 ---@return string|nil glyph
----@return string|nil color  "#RRGGBB", pass it to hl_for()
+---@return string|nil color
 local function badge(tags)
-	return nil
+	local b = tags.badges
+	if not b or b == "" then
+		return nil
+	end
+	for _, role in ipairs(badge_order) do
+		local cfg = M.config.badges[role]
+		if cfg and b:find(role .. "/", 1, true) then
+			return cfg[1], cfg[2]
+		end
+	end
 end
 
 --- Byte ranges of every @name in msg, 0-based, end exclusive. Twitch names are [%w_].
@@ -303,62 +307,25 @@ local function handle(line)
 	if m == "PING" then
 		state.tcp:write("PONG :tmi.twitch.tv\r\n")
 	elseif m then
-		-- LINE ANATOMY. Every chat line is assembled from fixed pieces, left to right:
-		--
-		--   "19:15 "  "★ "   "Foo"  ": "  "hello @Bar KEKW"
-		--    ts        badge  nick   sep   msg
-		--
-		-- append() only ever sees the final string plus a list of marks, and a mark is
-		-- { byte_start, byte_end, hl_group }, 0-based, end exclusive. So this function has
-		-- one real job: know the byte offset where each piece starts, and translate every
-		-- range that is relative to a piece (emotes and mentions are relative to msg)
-		-- into a range relative to the whole line. Get an offset wrong and every
-		-- highlight to the right of it shifts.
-		--
-		-- Byte lengths matter, not character counts: "★" is 3 bytes, "19:15 " is 6.
-		-- #str in Lua is bytes, which is exactly what extmarks want.
-		--
-		-- Real captured lines with every tag Twitch actually sends: tests/fixtures/raw.txt
-		--
-		-- WORKED EXAMPLE, a moderator+subscriber saying hello with a Twitch emote and a 7TV one.
-		-- Raw line from the socket, trimmed to the tags we read (one line, wrapped here):
-		--   @badges=moderator/1,subscriber/12;color=#00FF7F;display-name=Foo;emotes=25:11-15;
-		--   room-id=466139555 :foo!foo@foo.tmi.twitch.tv PRIVMSG #drututt :hello @Bar Kappa KEKW
-		--
-		-- parse_message → { nick="Foo", msg="hello @Bar Kappa KEKW", color="#00FF7F", tags={...} }
-		-- badge(tags)   → "⚔", "#00AD03"   (moderator wins over subscriber, see badge_order)
-		--
-		-- Final line:  "19:15 ⚔ Foo: hello @Bar Kappa KEKW"   36 bytes
-		--               ^     ^ ^  ^  ^     ^    ^     ^
-		--        byte   0     6 10 13 15    21   26    32
-		--
-		--   piece    bytes    mark
-		--   ts       0..6     { 0, 6, "KappaTime" }
-		--   "⚔"      6..9     { 6, 9, hl_for("#00AD03") }     3-byte glyph, then a space at 9
-		--   nick     10..13   { 10, 13, hl_for("#00FF7F") }   nick_start = #ts + #prefix = 6 + 4
-		--   ": "     13..15                                   off = nick_start + #nick + 2 = 15
-		--   @Bar     21..25   { 21, 25, "KappaMention" }      msg range 6..10, plus off
-		--   Kappa    26..31   { 26, 31, "KappaEmote", url }   tag says 11-15 codepoints → msg bytes 11..16
-		--   KEKW     32..36   { 32, 36, "KappaEmote", url }   msg range 17..21, from the 7TV set lookup
-		--
-		-- Without the badge, prefix is "" and every number from nick onward is 4 smaller.
+		-- line = ts .. prefix .. nick .. ": " .. msg      e.g. "19:15 ⚔ Foo: hello Kappa"
+		-- marks are { byte_start, byte_end, group }. Emote/mention ranges are relative to
+		-- msg, so add `off` (where msg starts) to them. Real raw lines: tests/fixtures/raw.txt
 		local ts = M.config.timestamps and os.date("%H:%M ") or ""
 		local marks = {}
 		marks[#marks + 1] = { 0, #ts, "KappaTime" } -- zero-length when timestamps are off, harmless
 
-		-- TODO(human): badge. Call badge(m.tags). If it returns a glyph:
-		--   1. build prefix = glyph .. " "  (the glyph and a space, before the nick)
-		--   2. add a mark for it: { #ts, #ts + #glyph, hl_for(color) }
-		--   3. every offset below (nick_start, off) must account for #prefix
-		--   4. put prefix into the final string built for append()
-		-- If nil, prefix is "" and nothing changes.
-		local nick_start = #ts
+		local glyph, color = badge(m.tags)
+		local prefix = " " -- one cell even without a badge, so nicks line up
+		if glyph then
+			prefix = glyph .. " "
+			marks[#marks + 1] = { #ts, #ts + #glyph, hl_for(color) }
+		end
+		local nick_start = #ts + #prefix
 		local group = hl_for(m.color)
 		if group then
 			marks[#marks + 1] = { nick_start, nick_start + #m.nick, group }
 		end
 
-		-- Everything inside msg is relative to msg. off is where msg begins in the line.
 		local off = nick_start + #m.nick + 2 -- 2 = ": "
 		emotes.fetch(m.tags["room-id"])
 		for _, e in ipairs(emotes.find(m.msg, m.tags, emotes.sets[m.tags["room-id"]])) do
@@ -368,7 +335,7 @@ local function handle(line)
 			marks[#marks + 1] = { off + r[1], off + r[2], "KappaMention" }
 		end
 
-		append(("%s%s: %s"):format(ts, m.nick, m.msg), marks)
+		append(ts .. prefix .. m.nick .. ": " .. m.msg, marks)
 	end
 end
 
