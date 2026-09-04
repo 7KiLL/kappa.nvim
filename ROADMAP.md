@@ -7,14 +7,11 @@ Rough order. Each item is small and independent.
 - [x] Read-only anonymous chat in a right sidebar (`:Kappa <channel>`, `:Kappa` to toggle)
 - [x] Colored nicknames via IRCv3 tags (`display-name`, `color`)
 - [x] Unicode emoji: free, the buffer is UTF-8 and nick offsets are byte-based already
+- [x] Dimmed timestamps: `KappaTime` linked to `Comment`
 - [x] Scroll lock: tail only while the cursor is on the last line, `G` resumes
 - [x] Emotes: Twitch (`emotes` tag) + 7TV (per room-id set), images via snacks.nvim, text highlight fallback
 
 ## Next
-
-- [ ] **Dimmed timestamps** (~5 lines)
-  Link a `KappaTime` group to `Comment`, extmark on columns `0..#ts`.
-  Same trick as nick colors.
 
 - [ ] **Mentions / keywords** (~15 lines)
   `highlights = { "yourname", "kappa.nvim" }` in opts. Case-insensitive match on the

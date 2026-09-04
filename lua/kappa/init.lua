@@ -181,6 +181,7 @@ local function hl_for(color)
 end
 
 vim.api.nvim_set_hl(0, "KappaEmote", { link = "Special", default = true })
+vim.api.nvim_set_hl(0, "KappaTime", { link = "Comment", default = true })
 
 --- Should the window keep following new lines? Called before the new line is
 --- added, so `n` is the line count as the user currently sees it.
@@ -265,6 +266,7 @@ local function handle(line)
 	elseif m then
 		local ts = M.config.timestamps and os.date("%H:%M ") or ""
 		local marks = {}
+		marks[#marks + 1] = { 0, #ts, "KappaTime" } -- zero-length when timestamps are off, harmless
 		local group = hl_for(m.color)
 		if group then
 			marks[#marks + 1] = { #ts, #ts + #m.nick, group }
