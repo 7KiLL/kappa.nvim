@@ -6,7 +6,8 @@ local M = {}
 ---@field timestamps boolean   prefix lines with HH:MM
 ---@field max_lines integer    oldest lines are dropped past this
 ---@field images boolean       render emotes as images when the terminal can (needs snacks.nvim)
----@field emote_width integer  max image width in cells; height is always one row, aspect kept
+---@field emote_width integer   max image width in cells, aspect kept
+---@field emote_height integer  rows; 1 inline, 3+ adds virtual lines below the message (2 is clamped to 1 by snacks)
 ---@field nick string          anonymous justinfanNNNNN login
 
 ---@class kappa.Tags: table<string, string>
@@ -37,7 +38,8 @@ M.config = {
 	timestamps = true,
 	max_lines = 10000, -- oldest lines are dropped past this
 	images = true, -- emotes as images if snacks.nvim + a kitty-graphics terminal are present
-	emote_width = 2, -- max cells wide; snacks fits the image into one row and keeps aspect
+	emote_width = 2, -- max cells wide, aspect kept
+	emote_height = 1, -- rows; 3+ pads virtual lines below the message, 2 is clamped to 1 by snacks
 	-- ponytail: anonymous read-only login; sending needs an oauth token, add when wanted
 	nick = "justinfan" .. math.random(10000, 99999),
 }
@@ -223,7 +225,7 @@ local function append(line, marks)
 					inline = true,
 					conceal = true,
 					width = M.config.emote_width,
-					height = 1, -- snacks forces 1 on lines with text anyway; >2 would overlay the next rows
+					height = M.config.emote_height,
 				})
 				table.insert(state.placements, { p = p, row = row + 1 })
 			end
