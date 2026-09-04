@@ -42,6 +42,8 @@ Rough order. Each item is small and independent.
 
 - Zebra rows are opaque on transparent terminals. Cells have no alpha. Override `KappaAlt`
   with a bg near your wallpaper, or use an fg-only stripe.
+- Animated emotes show their first frame. Snacks converts to one PNG; streaming frames over
+  the kitty protocol per visible emote is not something any Neovim plugin does.
 - Wrapped lines that end in an emote get a blank virtual row under them. Snacks skips its
   overlay path when the text is wider than the window. Wider sidebar helps, real fix is upstream.
 
