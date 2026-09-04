@@ -1,5 +1,32 @@
 local M = {}
 
+---@class kappa.Config
+---@field channel string|nil   default channel for :Kappa with no argument
+---@field width integer        sidebar width in columns
+---@field timestamps boolean   prefix lines with HH:MM
+---@field max_lines integer    oldest lines are dropped past this
+---@field nick string          anonymous justinfanNNNNN login
+
+---@class kappa.Tags: table<string, string>
+---@field color string|nil            "#RRGGBB" or ""
+---@field ["display-name"] string|nil
+---@field ["room-id"] string|nil
+---@field emotes string|nil           "id:start-end,.../id:..."
+
+---@class kappa.Message
+---@field nick string       display-name if set, else prefix nick
+---@field msg string        message text
+---@field color string|nil  "#RRGGBB", never ""
+---@field tags kappa.Tags   raw tags, {} for untagged lines
+
+---@alias kappa.Mark { [1]: integer, [2]: integer, [3]: string }  col_start, col_end (exclusive), hl group
+
+---@class kappa.State
+---@field tcp uv.uv_tcp_t|nil
+---@field buf integer|nil
+---@field win integer|nil
+
+---@type kappa.Config
 M.config = {
 	channel = nil, -- default channel for :Kappa with no argument
 	width = 40,
@@ -9,6 +36,9 @@ M.config = {
 	nick = "justinfan" .. math.random(10000, 99999),
 }
 
+local emotes = require("kappa.emotes")
+
+---@type kappa.State
 local state = { tcp = nil, buf = nil, win = nil }
 
 -- Twitch prefixes chat lines with IRCv3 tags once we CAP REQ them:
@@ -21,14 +51,19 @@ local ns = vim.api.nvim_create_namespace("kappa")
 
 -- One highlight group per distinct color, created lazily and remembered here
 -- so we don't call nvim_set_hl 500 times for the same red.
--- Key: "#FF0000"  →  value: "KappaFF0000" (the group name we created)
+-- Key: "#FF0000"  →  value: "FF0000" (the group name we created)
+---@type table<string, string>
 local hl_cache = {}
 
+---@param opts kappa.Config|nil
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
 end
 
 --- Parse one IRC line. Returns nick, message for PRIVMSG; "PING" for pings; nil otherwise.
+---@param line string  untagged IRC line
+---@return string|nil nick  "PING" for pings
+---@return string|nil msg
 function M.parse(line)
 	if line:find("^PING") then
 		return "PING"
@@ -39,7 +74,10 @@ function M.parse(line)
 	end
 end
 
---- @param line string
+--- Split the leading "@k=v;k=v " block off an IRC line.
+---@param line string
+---@return kappa.Tags tags  {} when the line has no tags
+---@return string rest      the line without the tag block
 function M.parse_tags(line)
 	local tags = {}
 	if not line:find("^@", 1) then
@@ -66,6 +104,8 @@ end
 ---   - nick is tags["display-name"] when that is a non-empty string, else the nick from the prefix
 ---   - color is tags.color when non-empty, else nil (NOT "" — append will test `if color`)
 ---   - works on untagged lines too (before CAP ACK arrives, or if Twitch NAKs)
+---@param line string
+---@return kappa.Message|"PING"|nil
 function M.parse_message(line)
 	local tags, rest = M.parse_tags(line)
 	local nick, msg = M.parse(rest)
@@ -86,13 +126,14 @@ function M.parse_message(line)
 		color = nil
 	end
 
-	return { nick = name, msg = msg, color = color }
+	return { nick = name, msg = msg, color = color, tags = tags }
 end
 
 --- Turn a hex color into a highlight group name, creating it on first use.
 ---   "#FF0000" → "KappaFF0000"
 --- Returns nil for empty/missing color so the caller can skip highlighting.
---- @param color string
+---@param color string|nil
+---@return string|nil group
 local function hl_for(color)
 	if color == "" or color == nil then
 		return nil
@@ -104,21 +145,21 @@ local function hl_for(color)
 
 	local hl_name = color:gsub("#", "")
 	hl_cache[color] = hl_name
-	vim.api.nvim_set_hl(0, hl_name, { fg = color })
+	-- handle() runs in the socket callback (fast context), API calls must be scheduled.
+	-- The extmark using this group is scheduled later from append(), so it lands after.
+	vim.schedule(function()
+		vim.api.nvim_set_hl(0, hl_name, { fg = color })
+	end)
 
 	return hl_name
 end
 
---- Paint columns [col_start, col_end) of a buffer row with a highlight group.
---- Rows and columns are 0-based here (the extmark API is 0-based, unlike cursor positions).
-local function highlight_nick(row, col_start, col_end, group)
-	vim.api.nvim_buf_set_extmark(state.buf, ns, row, col_start, {
-		end_col = col_end,
-		hl_group = group,
-	})
-end
+vim.api.nvim_set_hl(0, "KappaEmote", { link = "Special", default = true })
 
-local function append(line, nick_start, nick_end, color)
+--- Append one line to the chat buffer and paint marks on it. Safe from any thread.
+---@param line string
+---@param marks kappa.Mark[]|nil  0-based bytes into `line`, end exclusive
+local function append(line, marks)
 	vim.schedule(function()
 		if not (state.buf and vim.api.nvim_buf_is_valid(state.buf)) then
 			return
@@ -132,10 +173,9 @@ local function append(line, nick_start, nick_end, color)
 		end
 		vim.bo[state.buf].modifiable = false
 
-		local row = vim.api.nvim_buf_line_count(state.buf)
-		local group = hl_for(color)
-		if group then
-			highlight_nick(row - 1, nick_start, nick_end, group)
+		local row = vim.api.nvim_buf_line_count(state.buf) - 1
+		for _, mk in ipairs(marks or {}) do
+			vim.api.nvim_buf_set_extmark(state.buf, ns, row, mk[1], { end_col = mk[2], hl_group = mk[3] })
 		end
 		-- ponytail: always tail; stop following when user scrolls up if it annoys
 		if state.win and vim.api.nvim_win_is_valid(state.win) then
@@ -144,6 +184,7 @@ local function append(line, nick_start, nick_end, color)
 	end)
 end
 
+---@param line string  one raw IRC line, no CRLF
 local function handle(line)
 	local m = M.parse_message(line)
 
@@ -151,12 +192,21 @@ local function handle(line)
 		state.tcp:write("PONG :tmi.twitch.tv\r\n")
 	elseif m then
 		local ts = M.config.timestamps and os.date("%H:%M ") or ""
-		local nick_start = #ts -- 6, the length of "21:36 "
-		local nick_end = #ts + #m.nick
-		append(("%s%s: %s"):format(ts, m.nick, m.msg), nick_start, nick_end, m.color)
+		local marks = {}
+		local group = hl_for(m.color)
+		if group then
+			marks[#marks + 1] = { #ts, #ts + #m.nick, group }
+		end
+		emotes.fetch(m.tags["room-id"])
+		local off = #ts + #m.nick + 2 -- ": "
+		for _, e in ipairs(emotes.find(m.msg, m.tags, emotes.sets[m.tags["room-id"]])) do
+			marks[#marks + 1] = { off + e.s, off + e.e, "KappaEmote" }
+		end
+		append(("%s%s: %s"):format(ts, m.nick, m.msg), marks)
 	end
 end
 
+---@param channel string  lowercase, no "#"
 local function connect(channel)
 	local uv = vim.uv or vim.loop
 	uv.getaddrinfo("irc.chat.twitch.tv", nil, { family = "inet", socktype = "stream" }, function(err, res)
@@ -191,6 +241,8 @@ local function connect(channel)
 	end)
 end
 
+--- Reset state and close the socket. Returns the old state so close() can tear down the UI.
+---@return kappa.State
 local function disconnect()
 	local s = state
 	state = { tcp = nil, buf = nil, win = nil }
@@ -210,6 +262,7 @@ function M.close()
 	end
 end
 
+---@param channel string|nil  falls back to config.channel
 function M.open(channel)
 	channel = (channel or M.config.channel or ""):lower():gsub("^#", "")
 	if channel == "" then
@@ -234,6 +287,7 @@ function M.open(channel)
 	connect(channel)
 end
 
+---@param channel string|nil  with a channel: (re)open it; without: close if open, else open config.channel
 function M.toggle(channel)
 	if state.win and vim.api.nvim_win_is_valid(state.win) and not channel then
 		return M.close()
