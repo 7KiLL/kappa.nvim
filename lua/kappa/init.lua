@@ -1,12 +1,13 @@
 local M = {}
 
+--- Options for `setup()` / lazy.nvim `opts`. Every field is optional, see M.config for defaults.
 ---@class kappa.Config
----@field channel string|nil   default channel for :Kappa with no argument
----@field width integer        sidebar width in columns
----@field timestamps boolean   prefix lines with HH:MM
----@field max_lines integer    oldest lines are dropped past this
----@field images boolean       render emotes as images when the terminal can (needs snacks.nvim)
----@field nick string          anonymous justinfanNNNNN login
+---@field channel? string    default channel for :Kappa with no argument
+---@field width? integer     sidebar width in columns
+---@field timestamps? boolean prefix lines with HH:MM
+---@field max_lines? integer oldest lines are dropped past this (300 in image mode)
+---@field images? boolean    render emotes as images when the terminal can (needs snacks.nvim)
+---@field nick? string       anonymous justinfanNNNNN login
 
 ---@class kappa.Tags: table<string, string>
 ---@field color string|nil            "#RRGGBB" or ""
@@ -224,7 +225,17 @@ local function append(line, marks)
 
 		local row = vim.api.nvim_buf_line_count(state.buf) - 1
 		for _, mk in ipairs(marks or {}) do
-			vim.api.nvim_buf_set_extmark(state.buf, ns, row, mk[1], { end_col = mk[2], hl_group = mk[3] })
+			if mk.url and not state.images then
+				local name = line:sub(mk[1] + 1, mk[2])
+				vim.api.nvim_buf_set_extmark(state.buf, ns, row, mk[1], {
+					end_col = mk[2],
+					conceal = "",
+					virt_text = { { ":" .. name .. ":", "KappaEmote" } },
+					virt_text_pos = "inline",
+				})
+			else
+				vim.api.nvim_buf_set_extmark(state.buf, ns, row, mk[1], { end_col = mk[2], hl_group = mk[3] })
+			end
 			if mk.url and state.images then
 				-- ponytail: fixed 2x1 cells. Rows are fixed height, so bigger means padded
 				-- virtual lines under the message, which looked bad. Bump the terminal font instead.
@@ -347,7 +358,8 @@ function M.open(channel)
 	vim.api.nvim_win_set_buf(state.win, state.buf)
 	vim.api.nvim_win_set_width(state.win, M.config.width)
 	local wo = vim.wo[state.win]
-	wo.wrap, wo.number, wo.relativenumber, wo.signcolumn, wo.winfixwidth = true, false, false, "no", true
+	wo.wrap, wo.number, wo.relativenumber, wo.signcolumn, wo.winfixwidth, wo.conceallevel, wo.concealcursor =
+		true, false, false, "no", true, 2, "nvc"
 	vim.cmd.wincmd("p")
 
 	connect(channel)
