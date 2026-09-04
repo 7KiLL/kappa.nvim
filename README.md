@@ -22,6 +22,7 @@ Twitch and 7TV emotes render as images when [snacks.nvim](https://github.com/fol
   timestamps = true,  -- prefix messages with HH:MM
   max_lines = 10000,  -- oldest lines are dropped past this (300 in image mode)
   images = true,      -- emotes as images via snacks.nvim when the terminal can
+  zebra = true,       -- every other message gets the KappaAlt background
   badges = {          -- glyph before the nick, first matching role wins
     broadcaster = { "●", "#E91916" },
     moderator   = { "⚔", "#00AD03" },

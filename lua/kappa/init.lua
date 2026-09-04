@@ -9,6 +9,7 @@ local M = {}
 ---@field images? boolean    render emotes as images when the terminal can (needs snacks.nvim)
 ---@field nick? string       anonymous justinfanNNNNN login
 ---@field badges? table<string, { [1]: string, [2]: string }>  role → { glyph, "#RRGGBB" }
+---@field zebra? boolean     every other message gets the KappaAlt background
 
 ---@class kappa.Tags: table<string, string>
 ---@field color string|nil            "#RRGGBB" or ""
@@ -22,7 +23,7 @@ local M = {}
 ---@field color string|nil  "#RRGGBB", never ""
 ---@field tags kappa.Tags   raw tags, {} for untagged lines
 
----@alias kappa.Mark { [1]: integer, [2]: integer, [3]: string, url?: string }  col_start, col_end (exclusive), hl group, optional image
+---@alias kappa.Mark { [1]: integer, [2]: integer, [3]: string, url?: string, line?: boolean }  col_start, col_end (exclusive), hl group; url: image; line: whole-row background
 
 ---@class kappa.State
 ---@field tcp uv.uv_tcp_t|nil
@@ -30,6 +31,7 @@ local M = {}
 ---@field win integer|nil
 ---@field images boolean|nil                    decided once in open()
 ---@field placements { p: snacks.image.Placement, row: integer }[]|nil  1-based rows
+---@field count integer|nil  messages appended this session
 
 ---@type kappa.Config
 M.config = {
@@ -38,6 +40,7 @@ M.config = {
 	timestamps = true,
 	max_lines = 10000, -- oldest lines are dropped past this
 	images = true, -- emotes as images if snacks.nvim + a kitty-graphics terminal are present
+	zebra = true, -- alternate row background (KappaAlt, links to CursorLine)
 	-- One glyph before the nick for the first role the user has (see badge()).
 	-- Override with nerd-font glyphs if you like. Colors are Twitch's own.
 	badges = {
@@ -192,6 +195,7 @@ end
 vim.api.nvim_set_hl(0, "KappaEmote", { link = "Special", default = true })
 vim.api.nvim_set_hl(0, "KappaTime", { link = "Comment", default = true })
 vim.api.nvim_set_hl(0, "KappaMention", { link = "Identifier", default = true })
+vim.api.nvim_set_hl(0, "KappaAlt", { link = "CursorLine", default = true })
 
 -- first match wins, so a mod who also subs shows the mod glyph
 local badge_order = { "broadcaster", "moderator", "vip", "subscriber" }
@@ -277,6 +281,8 @@ local function append(line, marks)
 					virt_text = { { ":" .. name .. ":", "KappaEmote" } },
 					virt_text_pos = "inline",
 				})
+			elseif mk.line then
+				vim.api.nvim_buf_set_extmark(state.buf, ns, row, 0, { line_hl_group = mk[3] })
 			else
 				vim.api.nvim_buf_set_extmark(state.buf, ns, row, mk[1], { end_col = mk[2], hl_group = mk[3] })
 			end
@@ -312,6 +318,10 @@ local function handle(line)
 		-- msg, so add `off` (where msg starts) to them. Real raw lines: tests/fixtures/raw.txt
 		local ts = M.config.timestamps and os.date("%H:%M ") or ""
 		local marks = {}
+		state.count = (state.count or 0) + 1
+		if M.config.zebra and state.count % 2 == 0 then
+			marks[#marks + 1] = { 0, 0, "KappaAlt", line = true }
+		end
 		marks[#marks + 1] = { 0, #ts, "KappaTime" } -- zero-length when timestamps are off, harmless
 
 		local glyph, color = badge(m.tags)

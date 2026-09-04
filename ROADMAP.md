@@ -7,6 +7,7 @@ Rough order. Each item is small and independent.
 - [x] Read-only anonymous chat in a right sidebar (`:Kappa <channel>`, `:Kappa` to toggle)
 - [x] Colored nicknames via IRCv3 tags (`display-name`, `color`)
 - [x] Unicode emoji: free, the buffer is UTF-8 and nick offsets are byte-based already
+- [x] Zebra rows: every other message gets `KappaAlt` (links to `CursorLine`)
 - [x] Badges: glyph + color per role before the nick, first of broadcaster/mod/vip/sub wins
 - [x] `@name` mentions highlighted with `KappaMention`
 - [x] Dimmed timestamps: `KappaTime` linked to `Comment`
