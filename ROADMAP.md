@@ -7,6 +7,7 @@ Rough order. Each item is small and independent.
 - [x] Read-only anonymous chat in a right sidebar (`:Kappa <channel>`, `:Kappa` to toggle)
 - [x] Colored nicknames via IRCv3 tags (`display-name`, `color`)
 - [x] Unicode emoji: free, the buffer is UTF-8 and nick offsets are byte-based already
+- [x] Emotes: Twitch (`emotes` tag) + 7TV (per room-id set), images via snacks.nvim, text highlight fallback
 
 ## Next
 
@@ -45,26 +46,6 @@ Rough order. Each item is small and independent.
 - [ ] **README screenshot**
   Needed for awesome-neovim. `assets/demo.png` like copybara.
 
-- [ ] **Emotes: Twitch + 7TV** (~150 lines, new `lua/kappa/emotes.lua`)
-  Images by default, text fallback when the terminal can't. Never "unsupported".
-
-  Finding them:
-  - Twitch: the `emotes` tag gives `id:start-end,...` in codepoint offsets
-    (`vim.str_byteindex` to bytes). Image: `https://static-cdn.jtvnw.net/emoticons/v2/<id>/default/dark/2.0`
-  - 7TV: `room-id` tag → `GET https://7tv.io/v3/users/twitch/<room-id>` once per channel,
-    public, no auth. `emote_set.emotes[].name` + id. Match words per message.
-    Image: `https://cdn.7tv.app/emote/<id>/2x.webp`
-
-  Rendering, picked once at open:
-  1. `Snacks.image.supports_terminal()` true (kitty, ghostty; tmux ok, zellij no)
-     → download once to `stdpath("cache")/kappa/`, then
-       `Snacks.image.placement.new(buf, file, { pos = {row, col}, inline = true, width = 2, height = 1 })`
-       over the emote text. First frame only, no animation.
-  2. otherwise → highlight the range with a `KappaEmote` group and wrap it, e.g. `⟨KEKW⟩`,
-     so emotes read differently from words.
-
-  Keep it cheap: cap buffer at ~300 lines, drop placements on lines that scroll out,
-  one download per emote id.
 
 - [ ] **Sending messages** (~30 lines + config)
   Needs an OAuth token with `chat:edit` scope and `PASS oauth:<token>` before `NICK`.
