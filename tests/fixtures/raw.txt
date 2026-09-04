@@ -1,0 +1,25 @@
+# Real lines from irc.chat.twitch.tv, captured 2026-09-05 with CAP REQ :twitch.tv/tags twitch.tv/commands
+# One IRC message per line, CRLF stripped. Lines starting with # are comments.
+
+# server greeting and CAP ack
+:tmi.twitch.tv 001 justinfan12345 :Welcome, GLHF!
+:tmi.twitch.tv CAP * ACK :twitch.tv/tags twitch.tv/commands
+
+# ROOMSTATE arrives right after JOIN and carries room-id before any chat does
+@emote-only=0;followers-only=0;r9k=0;room-id=61812950;slow=3;subs-only=0 :tmi.twitch.tv ROOMSTATE #otzdarva
+
+# plain viewer, no badges, no emotes
+@badge-info=;badges=;client-nonce=2673b85cf5244a6f84eb049b0d8b582c;color=#FF0000;display-name=navetsOG;emotes=;first-msg=0;flags=;id=4b75e0c5-493c-42dd-b840-4536c31c9226;mod=0;returning-chatter=0;room-id=61812950;subscriber=0;tmi-sent-ts=1788561153026;turbo=0;user-id=632188072;user-type= :navetsog!navetsog@navetsog.tmi.twitch.tv PRIVMSG #otzdarva :i,, too, just keep sprinting when i see the police
+
+# subscriber replying to someone (reply-parent-* tags, @mention in the text)
+@badge-info=subscriber/26;badges=subscriber/24,bits-charity/1;client-nonce=c27bf1956604484da3a49572e977490a;color=#980000;display-name=Kia_The_Dead;emotes=;first-msg=0;flags=;id=163ad1ef-a203-4ccc-a59e-5ed6d539a02d;mod=0;reply-parent-display-name=zachxy_;reply-parent-msg-body=IS\sTHAT\sA\sDEAD\sBODY;reply-parent-msg-id=5c8f91d1-9c06-4ac4-a333-5e703b8a0001;reply-parent-user-id=76488884;reply-parent-user-login=zachxy_;reply-thread-parent-display-name=zachxy_;reply-thread-parent-msg-id=5c8f91d1-9c06-4ac4-a333-5e703b8a0001;reply-thread-parent-user-id=76488884;reply-thread-parent-user-login=zachxy_;returning-chatter=0;room-id=61812950;subscriber=1;tmi-sent-ts=1788561155316;turbo=0;user-id=36175552;user-type= :kia_the_dead!kia_the_dead@kia_the_dead.tmi.twitch.tv PRIVMSG #otzdarva :@zachxy_ Sleeping
+
+# moderator + subscriber, three different Twitch emotes (emotes=id:range/id:range/...)
+# also a /me message: the text is wrapped in byte 0x01, "ACTION", text, byte 0x01
+@badge-info=subscriber/85;badges=moderator/1,subscriber/84;color=#8A2BE2;display-name=SchnozeBot;emotes=932291:18-21/1035672:23-26/1035670:10-16;first-msg=0;flags=;id=f97f4659-e732-4513-95d7-cac245c9cb36;mod=1;returning-chatter=0;room-id=71092938;subscriber=1;tmi-sent-ts=1788561208612;turbo=0;user-id=264879410;user-type=mod :schnozebot!schnozebot@schnozebot.tmi.twitch.tv PRIVMSG #xqc :ACTION MLGErik | xqcLook xqcT xqcM | lost 2000 points LuL
+
+# same emote four times (emotes=id:range,range,range,range)
+@badge-info=subscriber/94;badges=moderator/1,subscriber/3090,bot-badge/1;color=#1976D2;display-name=Fossabot;emotes=1035663:0-3,51-54,86-89,129-132;first-msg=0;flags=;id=0386171e-b195-4dfe-a31a-2b15e64e5ca6;mod=1;returning-chatter=0;room-id=71092938;subscriber=1;tmi-sent-ts=1788561234888;turbo=0;user-id=237719657;user-type=mod :fossabot!fossabot@fossabot.tmi.twitch.tv PRIVMSG #xqc :xqcL MLGErik is staying in the jungle using Prime! xqcL Thanks so much for re-subbing xqcL And continuing to support the stream! xqcL
+
+# PING, must be answered with PONG
+PING :tmi.twitch.tv
