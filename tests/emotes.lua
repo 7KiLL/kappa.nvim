@@ -25,13 +25,13 @@ assert(tu[1].s == 3 and tu[1].e == 8, tu[1].s .. "-" .. tu[1].e)
 assert(#em.twitch("", msg) == 0 and #em.twitch(nil, msg) == 0)
 
 -- 4. 7tv: whole words only, byte offsets, url
-local set = { KEKW = "abc", OMEGALUL = "def" }
+local set = { KEKW = "https://cdn.7tv.app/emote/abc/2x.webp", OMEGALUL = "https://cdn.betterttv.net/emote/def/2x.webp" }
 local s = em.seventv("KEKW lol KEKWait OMEGALUL", set)
 dump("7tv", s)
 assert(#s == 2, "expected 2 got " .. #s)
 assert(s[1].name == "KEKW" and s[1].s == 0 and s[1].e == 4)
-assert(s[2].name == "OMEGALUL" and s[2].id == "def" and s[2].s == 17)
-assert(s[2].url == "https://cdn.7tv.app/emote/def/2x.webp", s[2].url)
+assert(s[2].name == "OMEGALUL" and s[2].s == 17)
+assert(s[2].url == "https://cdn.betterttv.net/emote/def/2x.webp", s[2].url)
 
 -- 5. merged, sorted
 local f = em.find("KEKW Kappa", { emotes = "25:5-9" }, set)

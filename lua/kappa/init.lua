@@ -6,6 +6,7 @@ local M = {}
 ---@field timestamps boolean   prefix lines with HH:MM
 ---@field max_lines integer    oldest lines are dropped past this
 ---@field images boolean       render emotes as images when the terminal can (needs snacks.nvim)
+---@field emote_width integer  max image width in cells; height is always one row, aspect kept
 ---@field nick string          anonymous justinfanNNNNN login
 
 ---@class kappa.Tags: table<string, string>
@@ -36,6 +37,7 @@ M.config = {
 	timestamps = true,
 	max_lines = 10000, -- oldest lines are dropped past this
 	images = true, -- emotes as images if snacks.nvim + a kitty-graphics terminal are present
+	emote_width = 2, -- max cells wide; snacks fits the image into one row and keeps aspect
 	-- ponytail: anonymous read-only login; sending needs an oauth token, add when wanted
 	nick = "justinfan" .. math.random(10000, 99999),
 }
@@ -214,14 +216,14 @@ local function append(line, marks)
 		for _, mk in ipairs(marks or {}) do
 			vim.api.nvim_buf_set_extmark(state.buf, ns, row, mk[1], { end_col = mk[2], hl_group = mk[3] })
 			if mk.url and state.images then
-				-- ponytail: 2x1 cell image over the emote text, first frame only
+				-- ponytail: image over the emote text, first frame only
 				local p = Snacks.image.placement.new(state.buf, mk.url, {
 					pos = { row + 1, mk[1] },
 					range = { row + 1, mk[1], row + 1, mk[2] },
 					inline = true,
 					conceal = true,
-					width = 2,
-					height = 1,
+					width = M.config.emote_width,
+					height = 1, -- snacks forces 1 on lines with text anyway; >2 would overlay the next rows
 				})
 				table.insert(state.placements, { p = p, row = row + 1 })
 			end
