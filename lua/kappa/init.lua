@@ -5,6 +5,7 @@ local M = {}
 ---@field width integer        sidebar width in columns
 ---@field timestamps boolean   prefix lines with HH:MM
 ---@field max_lines integer    oldest lines are dropped past this
+---@field images boolean       render emotes as images when the terminal can (needs snacks.nvim)
 ---@field nick string          anonymous justinfanNNNNN login
 
 ---@class kappa.Tags: table<string, string>
@@ -19,12 +20,14 @@ local M = {}
 ---@field color string|nil  "#RRGGBB", never ""
 ---@field tags kappa.Tags   raw tags, {} for untagged lines
 
----@alias kappa.Mark { [1]: integer, [2]: integer, [3]: string }  col_start, col_end (exclusive), hl group
+---@alias kappa.Mark { [1]: integer, [2]: integer, [3]: string, url?: string }  col_start, col_end (exclusive), hl group, optional image
 
 ---@class kappa.State
 ---@field tcp uv.uv_tcp_t|nil
 ---@field buf integer|nil
 ---@field win integer|nil
+---@field images boolean|nil                    decided once in open()
+---@field placements { p: snacks.image.Placement, row: integer }[]|nil  1-based rows
 
 ---@type kappa.Config
 M.config = {
@@ -32,6 +35,7 @@ M.config = {
 	width = 40,
 	timestamps = true,
 	max_lines = 10000, -- oldest lines are dropped past this
+	images = true, -- emotes as images if snacks.nvim + a kitty-graphics terminal are present
 	-- ponytail: anonymous read-only login; sending needs an oauth token, add when wanted
 	nick = "justinfan" .. math.random(10000, 99999),
 }
@@ -131,6 +135,27 @@ end
 
 --- Turn a hex color into a highlight group name, creating it on first use.
 ---   "#FF0000" → "KappaFF0000"
+--- Decide once whether emotes can be drawn as images in this session.
+--- Must be false when snacks.nvim is missing, the terminal lacks graphics
+--- support (Snacks.image.supports_terminal), or the user turned images off.
+---@return boolean
+local function images_ok()
+	if M.config.images == false then
+		return false
+	end
+
+	local ok, snacks = pcall(require, "snacks")
+	if not ok then
+		return false
+	end
+
+	if snacks.image.supports_terminal() == false then
+		return false
+	end
+
+	return true
+end
+
 --- Returns nil for empty/missing color so the caller can skip highlighting.
 ---@param color string|nil
 ---@return string|nil group
@@ -169,13 +194,37 @@ local function append(line, marks)
 		-- ponytail: trim in batches (10% over), not on every message
 		local n = vim.api.nvim_buf_line_count(state.buf)
 		if n > M.config.max_lines * 1.1 then
-			vim.api.nvim_buf_set_lines(state.buf, 0, n - M.config.max_lines, false, {})
+			local k = n - M.config.max_lines
+			vim.api.nvim_buf_set_lines(state.buf, 0, k, false, {})
+			-- placements on trimmed rows die, the rest shift up
+			local keep = {}
+			for _, pl in ipairs(state.placements or {}) do
+				if pl.row <= k then
+					pl.p:close()
+				else
+					pl.row = pl.row - k
+					keep[#keep + 1] = pl
+				end
+			end
+			state.placements = keep
 		end
 		vim.bo[state.buf].modifiable = false
 
 		local row = vim.api.nvim_buf_line_count(state.buf) - 1
 		for _, mk in ipairs(marks or {}) do
 			vim.api.nvim_buf_set_extmark(state.buf, ns, row, mk[1], { end_col = mk[2], hl_group = mk[3] })
+			if mk.url and state.images then
+				-- ponytail: 2x1 cell image over the emote text, first frame only
+				local p = Snacks.image.placement.new(state.buf, mk.url, {
+					pos = { row + 1, mk[1] },
+					range = { row + 1, mk[1], row + 1, mk[2] },
+					inline = true,
+					conceal = true,
+					width = 2,
+					height = 1,
+				})
+				table.insert(state.placements, { p = p, row = row + 1 })
+			end
 		end
 		-- ponytail: always tail; stop following when user scrolls up if it annoys
 		if state.win and vim.api.nvim_win_is_valid(state.win) then
@@ -200,7 +249,7 @@ local function handle(line)
 		emotes.fetch(m.tags["room-id"])
 		local off = #ts + #m.nick + 2 -- ": "
 		for _, e in ipairs(emotes.find(m.msg, m.tags, emotes.sets[m.tags["room-id"]])) do
-			marks[#marks + 1] = { off + e.s, off + e.e, "KappaEmote" }
+			marks[#marks + 1] = { off + e.s, off + e.e, "KappaEmote", url = e.url }
 		end
 		append(("%s%s: %s"):format(ts, m.nick, m.msg), marks)
 	end
@@ -275,6 +324,11 @@ function M.open(channel)
 	vim.bo[state.buf].filetype = "kappa"
 	vim.bo[state.buf].modifiable = false
 	vim.api.nvim_create_autocmd("BufWipeout", { buffer = state.buf, once = true, callback = disconnect })
+	state.images = images_ok()
+	state.placements = {}
+	if state.images and M.config.max_lines > 300 then
+		M.config.max_lines = 300 -- ponytail: images are expensive, keep the buffer short
+	end
 
 	vim.cmd("botright vsplit")
 	state.win = vim.api.nvim_get_current_win()
