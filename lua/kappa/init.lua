@@ -15,7 +15,8 @@ local M = {}
 ---@field color string|nil            "#RRGGBB" or ""
 ---@field ["display-name"] string|nil
 ---@field ["room-id"] string|nil
----@field emotes string|nil           "id:start-end,.../id:..."
+---@field emotes string|nil
+---@field badges? string
 
 ---@class kappa.Message
 ---@field nick string       display-name if set, else prefix nick
@@ -297,6 +298,16 @@ local function append(line, marks)
 					width = 2,
 					height = 1,
 				})
+				-- ponytail: snacks pads every inline image by +2 cells (placement.lua, "scale down
+				-- to fit inline"). That made emotes 4 wide and wrapped lines with several of them.
+				-- Strip it per placement. Drop this when snacks makes the padding configurable.
+				local orig = p.state
+				p.state = function(self)
+					local st = orig(self)
+					st.loc.width = math.max(1, st.loc.width - 2)
+					return st
+				end
+				p:update() -- re-render if it already drew with the padded width (cached image)
 				table.insert(state.placements, { p = p, row = row + 1 })
 			end
 		end
